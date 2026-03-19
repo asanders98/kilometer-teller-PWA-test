@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.repository == 'asanders98/kilometer-teller-PWA-test'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
