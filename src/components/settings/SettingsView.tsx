@@ -1,6 +1,7 @@
 import { useKmStore } from '../../store/kmStore'
 import { cn } from '../../lib/utils'
 import type { AppSettings } from '../../types'
+import { GoogleDriveBackup } from './GoogleDriveBackup'
 
 const THEME_OPTIONS: { value: AppSettings['theme']; label: string; icon: string }[] = [
   { value: 'light', label: 'Licht', icon: '☀️' },
@@ -71,6 +72,9 @@ export function SettingsView() {
           ))}
         </div>
       </div>
+
+      {/* Google Drive Backup */}
+      <GoogleDriveBackup />
 
       <div className="bg-primary/10 border border-primary/20 rounded-xl px-4 py-3 text-sm text-primary">
         Gegevens worden automatisch opgeslagen op dit apparaat.
