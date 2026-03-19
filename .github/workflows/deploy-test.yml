@@ -25,6 +25,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Use red icons for test app
+        run: cp public/icons-red/* public/
       - run: npm install
       - name: Set build version
         id: version
