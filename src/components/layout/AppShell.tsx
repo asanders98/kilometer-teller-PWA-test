@@ -1,0 +1,52 @@
+import { useEffect, useState } from 'react'
+import { Home, Download, Settings } from 'lucide-react'
+import { useKmStore } from '../../store/kmStore'
+import { today } from '../../lib/dateUtils'
+import type { TabId } from '../../types'
+import { Dock } from './Dock'
+import { HomeView } from '../home/HomeView'
+import { ExportModal } from '../export/ExportModal'
+import { SettingsView } from '../settings/SettingsView'
+
+const DOCK_ITEMS = (onTabChange: (t: TabId) => void) => [
+  { id: 'home' as TabId, icon: Home, label: 'Overzicht', onClick: () => onTabChange('home') },
+  { id: 'export' as TabId, icon: Download, label: 'Exporteer', onClick: () => onTabChange('export') },
+  { id: 'settings' as TabId, icon: Settings, label: 'Instellingen', onClick: () => onTabChange('settings') },
+]
+
+export function AppShell() {
+  const [activeTab, setActiveTab] = useState<TabId>('home')
+  const selectedDate = useKmStore((s) => s.selectedDate)
+  const setSelectedDate = useKmStore((s) => s.setSelectedDate)
+
+  // Default to today on first load
+  useEffect(() => {
+    if (!selectedDate) setSelectedDate(today())
+  }, [selectedDate, setSelectedDate])
+
+  return (
+    <div className="flex flex-col h-dvh bg-background">
+      {/* Header */}
+      <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-center flex-shrink-0">
+        <h1 className="text-lg font-bold text-foreground">Km Teller</h1>
+      </header>
+
+      {/* Content */}
+      <main className="flex-1 overflow-hidden pb-24">
+        {activeTab === 'home' && <HomeView />}
+        {activeTab === 'export' && (
+          <div className="h-full overflow-y-auto">
+            <ExportModal />
+          </div>
+        )}
+        {activeTab === 'settings' && (
+          <div className="h-full overflow-y-auto">
+            <SettingsView />
+          </div>
+        )}
+      </main>
+
+      <Dock items={DOCK_ITEMS(setActiveTab)} activeTab={activeTab} />
+    </div>
+  )
+}
