@@ -7,6 +7,7 @@ import { Dock } from './Dock'
 import { HomeView } from '../home/HomeView'
 import { ExportModal } from '../export/ExportModal'
 import { SettingsView } from '../settings/SettingsView'
+import { useAutoBackup } from '../../hooks/useAutoBackup'
 
 const DOCK_ITEMS = (onTabChange: (t: TabId) => void) => [
   { id: 'home' as TabId, icon: Home, label: 'Overzicht', onClick: () => onTabChange('home') },
@@ -23,6 +24,9 @@ export function AppShell() {
   useEffect(() => {
     if (!selectedDate) setSelectedDate(today())
   }, [selectedDate, setSelectedDate])
+
+  // Auto-backup to Google Drive
+  useAutoBackup()
 
   return (
     <div className="flex flex-col h-dvh bg-background">

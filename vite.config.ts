@@ -4,9 +4,14 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 declare const process: { env: Record<string, string | undefined> }
 const base = process.env.VITE_BASE_PATH ?? '/kilometer-teller-PWA/'
+const version = process.env.npm_package_version ?? '0.0.0'
 
 export default defineConfig({
   base,
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({

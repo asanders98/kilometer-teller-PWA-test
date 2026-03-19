@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { KmStore, KmEntry, KmReading } from '../types'
+import type { KmStore, KmEntry, KmReading, BackupData } from '../types'
+import { getAccessToken } from '../lib/googleAuth'
+import { uploadBackup } from '../lib/googleDrive'
 
 export const useKmStore = create<KmStore>()(
   persist(
@@ -11,6 +13,12 @@ export const useKmStore = create<KmStore>()(
         werknemer: '',
         klant: '',
         theme: 'system',
+      },
+      googleDrive: {
+        enabled: false,
+        lastBackupAt: null,
+        accountEmail: null,
+        pendingBackup: false,
       },
 
       setSelectedDate: (date) => set({ selectedDate: date }),
@@ -55,6 +63,46 @@ export const useKmStore = create<KmStore>()(
         set((state) => ({
           settings: { ...state.settings, ...settings },
         }))
+      },
+
+      setGoogleDriveState: (driveState) => {
+        set((state) => ({
+          googleDrive: { ...state.googleDrive, ...driveState },
+        }))
+      },
+
+      triggerBackup: async () => {
+        const token = getAccessToken()
+        if (!token) {
+          set((state) => ({
+            googleDrive: { ...state.googleDrive, enabled: false, pendingBackup: true },
+          }))
+          throw new Error('Geen geldige token. Log opnieuw in.')
+        }
+
+        const { entries, settings } = get()
+        const backupData: BackupData = {
+          version: 1,
+          exportedAt: Date.now(),
+          entries,
+          settings,
+        }
+
+        await uploadBackup(backupData, token)
+        set((state) => ({
+          googleDrive: {
+            ...state.googleDrive,
+            lastBackupAt: Date.now(),
+            pendingBackup: false,
+          },
+        }))
+      },
+
+      restoreFromBackup: (data) => {
+        set({
+          entries: data.entries,
+          settings: data.settings,
+        })
       },
     }),
     {
