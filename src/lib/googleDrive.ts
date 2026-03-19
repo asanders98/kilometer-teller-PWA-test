@@ -1,6 +1,7 @@
 import type { BackupData } from '../types'
 
-const BACKUP_FILENAME = 'km-teller-backup.json'
+const isTest = import.meta.env.BASE_URL.includes('test')
+const BACKUP_FILENAME = isTest ? 'km-teller-backup-test.json' : 'km-teller-backup.json'
 const FOLDER_NAME = 'Kilometer Teller'
 const FILES_URL = 'https://www.googleapis.com/drive/v3/files'
 const UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files'
