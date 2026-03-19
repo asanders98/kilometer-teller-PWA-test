@@ -1,5 +1,5 @@
 import React, { useId } from 'react'
-import { CopyIcon, CircleXIcon } from 'lucide-react'
+import { CircleXIcon } from 'lucide-react'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { cn } from '../../lib/utils'
@@ -30,10 +30,6 @@ export function OdometerInput({
     if (!isNaN(num) && num <= 9999999) onChange(num)
   }
 
-  const handleCopy = () => {
-    if (value != null) void navigator.clipboard.writeText(String(value))
-  }
-
   const handleClear = () => onChange(null)
 
   return (
@@ -50,20 +46,12 @@ export function OdometerInput({
           disabled={disabled}
           placeholder="0"
           className={cn(
-            'text-base h-12 pr-16',
+            'text-base h-12 pr-9',
             isInvalid && 'border-destructive bg-destructive/5 focus-visible:border-destructive focus-visible:ring-destructive/20',
           )}
         />
         {value != null && !disabled && (
-          <div className="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-1.5">
-            <button
-              type="button"
-              aria-label="Kopieer waarde"
-              onClick={handleCopy}
-              className="p-1.5 text-muted-foreground/70 hover:text-foreground transition-colors rounded"
-            >
-              <CopyIcon size={15} />
-            </button>
+          <div className="absolute inset-y-0 right-0 flex items-center pr-1.5">
             <button
               type="button"
               aria-label="Wis waarde"
