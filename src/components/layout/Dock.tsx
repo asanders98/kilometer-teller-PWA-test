@@ -31,7 +31,7 @@ function DockIconButton({ item, isActive }: DockIconButtonProps) {
       whileTap={{ scale: 0.93 }}
       onClick={item.onClick}
       className={cn(
-        'relative group flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl transition-colors',
+        'relative flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl transition-colors',
         isActive ? 'bg-accent' : 'hover:bg-secondary',
       )}
     >
@@ -52,17 +52,6 @@ function DockIconButton({ item, isActive }: DockIconButtonProps) {
       {isActive && (
         <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
       )}
-      {/* Tooltip on hover (desktop) */}
-      <span
-        className={cn(
-          'absolute -top-9 left-1/2 -translate-x-1/2',
-          'px-2 py-1 rounded-md text-xs whitespace-nowrap pointer-events-none',
-          'bg-popover text-popover-foreground border border-border shadow-sm',
-          'opacity-0 group-hover:opacity-100 transition-opacity',
-        )}
-      >
-        {item.label}
-      </span>
     </motion.button>
   )
 }
