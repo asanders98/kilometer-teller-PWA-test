@@ -1,5 +1,5 @@
 const CLIENT_ID = '686288945131-hhqr00inum01oatgns12sllo7jljns7h.apps.googleusercontent.com'
-const SCOPE = 'https://www.googleapis.com/auth/drive.appdata'
+const SCOPE = 'https://www.googleapis.com/auth/drive.file'
 const TOKEN_KEY = 'km-teller-google-token'
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 
