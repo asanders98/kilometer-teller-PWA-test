@@ -54,7 +54,7 @@ export async function exportMonthToExcel(
   month: number,
   settings: AppSettings
 ): Promise<void> {
-  const res = await fetch('/template.xlsx')
+  const res = await fetch(import.meta.env.BASE_URL + 'template.xlsx')
   const buf = new Uint8Array(await res.arrayBuffer())
   const files = unzipSync(buf)
 
@@ -98,13 +98,24 @@ export async function exportMonthToExcel(
   // Re-zip (level 0 = store only, fastest; styles/images preserved as-is)
   const zipped = zipSync(files, { level: 0 })
 
-  const blob = new Blob([zipped.buffer as ArrayBuffer], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  })
+  const filename = `km_${year}_${String(month).padStart(2, '0')}.xlsx`
+  const type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  const blob = new Blob([zipped.buffer as ArrayBuffer], { type })
+
+  // iOS Safari: use Web Share API to open the native share sheet
+  const file = new File([blob], filename, { type })
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: filename })
+    return
+  }
+
+  // Desktop fallback: trigger download via <a> click
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `km_${year}_${String(month).padStart(2, '0')}.xlsx`
+  a.download = filename
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
