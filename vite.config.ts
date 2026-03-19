@@ -2,8 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const base = process.env.VITE_BASE_PATH ?? '/kilometer-teller-PWA/'
+
 export default defineConfig({
-  base: '/kilometer-teller-PWA/',
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -17,8 +19,8 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/kilometer-teller-PWA/',
-        scope: '/kilometer-teller-PWA/',
+        start_url: base,
+        scope: base,
         icons: [
           {
             src: 'icon-192.png',
