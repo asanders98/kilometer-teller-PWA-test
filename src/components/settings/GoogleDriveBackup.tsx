@@ -33,9 +33,19 @@ export function GoogleDriveBackup() {
     setLoading(true)
     setError(null)
     try {
+      const token = getAccessToken()
+      if (!token) {
+        setError('Sessie verlopen. Log opnieuw in met Google.')
+        setGoogleDriveState({ enabled: false })
+        return
+      }
       await triggerBackup()
-    } catch {
-      setError('Backup mislukt. Probeer het opnieuw.')
+      const state = useKmStore.getState().googleDrive
+      if (!state.lastBackupAt || state.pendingBackup) {
+        setError('Backup lijkt niet gelukt. Token mogelijk verlopen.')
+      }
+    } catch (err) {
+      setError(`Backup mislukt: ${err instanceof Error ? err.message : 'Onbekende fout'}`)
     } finally {
       setLoading(false)
     }

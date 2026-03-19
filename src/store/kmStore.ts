@@ -77,7 +77,7 @@ export const useKmStore = create<KmStore>()(
           set((state) => ({
             googleDrive: { ...state.googleDrive, enabled: false, pendingBackup: true },
           }))
-          return
+          throw new Error('Geen geldige token. Log opnieuw in.')
         }
 
         const { entries, settings } = get()
@@ -88,31 +88,14 @@ export const useKmStore = create<KmStore>()(
           settings,
         }
 
-        try {
-          await uploadBackup(backupData, token)
-          set((state) => ({
-            googleDrive: {
-              ...state.googleDrive,
-              lastBackupAt: Date.now(),
-              pendingBackup: false,
-            },
-          }))
-        } catch (err) {
-          if (err instanceof Error && err.message === 'TOKEN_EXPIRED') {
-            set((state) => ({
-              googleDrive: {
-                ...state.googleDrive,
-                enabled: false,
-                pendingBackup: true,
-              },
-            }))
-          } else {
-            // Mark pending so we retry when online
-            set((state) => ({
-              googleDrive: { ...state.googleDrive, pendingBackup: true },
-            }))
-          }
-        }
+        await uploadBackup(backupData, token)
+        set((state) => ({
+          googleDrive: {
+            ...state.googleDrive,
+            lastBackupAt: Date.now(),
+            pendingBackup: false,
+          },
+        }))
       },
 
       restoreFromBackup: (data) => {
