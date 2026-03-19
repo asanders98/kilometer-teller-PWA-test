@@ -1,6 +1,7 @@
 const CLIENT_ID = '686288945131-hhqr00inum01oatgns12sllo7jljns7h.apps.googleusercontent.com'
 const SCOPE = 'https://www.googleapis.com/auth/drive.appdata'
 const TOKEN_KEY = 'km-teller-google-token'
+const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 
 interface StoredToken {
   accessToken: string
@@ -8,56 +9,28 @@ interface StoredToken {
   email: string | null
 }
 
-let tokenClient: google.accounts.oauth2.TokenClient | null = null
-let resolveAuth: ((token: string) => void) | null = null
-let rejectAuth: ((err: Error) => void) | null = null
-
-function loadGisScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (typeof google !== 'undefined' && google.accounts) {
-      resolve()
-      return
-    }
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error('Failed to load Google Identity Services'))
-    document.head.appendChild(script)
-  })
-}
-
+/**
+ * On app startup, check if the URL hash contains an OAuth token
+ * (returned by Google after redirect-based auth).
+ */
 export async function initGoogleAuth(): Promise<void> {
-  await loadGisScript()
+  const hash = window.location.hash
+  if (!hash.includes('access_token')) return
 
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPE,
-    callback: (response) => {
-      if (response.error) {
-        rejectAuth?.(new Error(response.error))
-        rejectAuth = null
-        resolveAuth = null
-        return
-      }
-      const expiresAt = Date.now() + (response.expires_in ?? 3600) * 1000
-      const stored: StoredToken = {
-        accessToken: response.access_token,
-        expiresAt,
-        email: null,
-      }
-      // Fetch email in background
-      fetchUserEmail(response.access_token).then((email) => {
-        stored.email = email
-        localStorage.setItem(TOKEN_KEY, JSON.stringify(stored))
-      })
-      localStorage.setItem(TOKEN_KEY, JSON.stringify(stored))
-      resolveAuth?.(response.access_token)
-      resolveAuth = null
-      rejectAuth = null
-    },
-  })
+  const params = new URLSearchParams(hash.substring(1))
+  const accessToken = params.get('access_token')
+  const expiresIn = parseInt(params.get('expires_in') ?? '3600', 10)
+
+  if (!accessToken) return
+
+  // Clear the hash from the URL so it doesn't linger
+  history.replaceState(null, '', window.location.pathname + window.location.search)
+
+  const expiresAt = Date.now() + expiresIn * 1000
+  const email = await fetchUserEmail(accessToken)
+
+  const stored: StoredToken = { accessToken, expiresAt, email }
+  localStorage.setItem(TOKEN_KEY, JSON.stringify(stored))
 }
 
 async function fetchUserEmail(token: string): Promise<string | null> {
@@ -73,31 +46,30 @@ async function fetchUserEmail(token: string): Promise<string | null> {
   }
 }
 
-export async function signIn(): Promise<{ token: string; email: string | null }> {
-  if (!tokenClient) {
-    await initGoogleAuth()
-  }
-  return new Promise((resolve, reject) => {
-    resolveAuth = async (token) => {
-      const email = await fetchUserEmail(token)
-      const stored = getStoredToken()
-      if (stored) {
-        stored.email = email
-        localStorage.setItem(TOKEN_KEY, JSON.stringify(stored))
-      }
-      resolve({ token, email })
-    }
-    rejectAuth = reject
-    tokenClient!.requestAccessToken()
+/**
+ * Redirect to Google's OAuth page. After auth, Google redirects back
+ * to the app with the access token in the URL hash.
+ * Works in iOS PWA standalone mode (no popups needed).
+ */
+export function signIn(): void {
+  const redirectUri = window.location.origin + window.location.pathname
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'token',
+    scope: SCOPE,
+    include_granted_scopes: 'true',
   })
+  window.location.href = `${AUTH_URL}?${params}`
 }
 
 export function signOut(): void {
   const stored = getStoredToken()
   if (stored?.accessToken) {
-    google.accounts.oauth2.revoke(stored.accessToken, () => {
-      // Revoke callback - token is revoked
-    })
+    // Revoke token in background (best-effort)
+    fetch(`https://oauth2.googleapis.com/revoke?token=${stored.accessToken}`, {
+      method: 'POST',
+    }).catch(() => {})
   }
   localStorage.removeItem(TOKEN_KEY)
 }
