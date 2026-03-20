@@ -75,7 +75,7 @@ export function SettingsView() {
             type="date"
             value={settings.leaseStartDatum || ''}
             onChange={(e) => updateSettings({ leaseStartDatum: e.target.value })}
-            className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring text-base transition-shadow"
+            className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring text-base transition-shadow appearance-none min-w-0"
           />
         </div>
       </div>

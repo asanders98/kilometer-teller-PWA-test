@@ -154,18 +154,21 @@ function ProgressBar({ used, limit }: { used: number; limit: number }) {
 function PeriodTabs({ selected, onChange }: { selected: Period; onChange: (p: Period) => void }) {
   const periods: Period[] = ['D', 'W', 'M', '6M', 'J']
   return (
-    <div className="flex bg-muted/60 rounded-lg p-[3px] gap-[3px]">
+    <div className="flex items-center gap-1 px-2 py-1.5 rounded-2xl border border-border shadow-lg bg-card backdrop-blur-lg">
       {periods.map((p) => (
         <button
           key={p}
           onClick={() => onChange(p)}
-          className={`flex-1 text-xs font-semibold py-[6px] rounded-md transition-all ${
+          className={`relative flex-1 py-2 text-xs font-semibold rounded-xl transition-colors ${
             selected === p
-              ? 'bg-card text-foreground shadow-sm'
-              : 'text-muted-foreground'
+              ? 'bg-accent text-primary'
+              : 'text-muted-foreground hover:bg-secondary'
           }`}
         >
           {p}
+          {selected === p && (
+            <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+          )}
         </button>
       ))}
     </div>
