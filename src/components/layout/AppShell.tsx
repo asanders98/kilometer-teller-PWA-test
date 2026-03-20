@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Home, Car, Download, Settings } from 'lucide-react'
 import { useKmStore } from '../../store/kmStore'
 import { today } from '../../lib/dateUtils'
@@ -10,15 +10,16 @@ import { ExportModal } from '../export/ExportModal'
 import { SettingsView } from '../settings/SettingsView'
 import { useAutoBackup } from '../../hooks/useAutoBackup'
 
-const DOCK_ITEMS = (onTabChange: (t: TabId) => void) => [
-  { id: 'home' as TabId, icon: Home, label: 'Overzicht', onClick: () => onTabChange('home') },
-  { id: 'car' as TabId, icon: Car, label: 'Mijn Auto', onClick: () => onTabChange('car') },
-  { id: 'export' as TabId, icon: Download, label: 'Exporteer', onClick: () => onTabChange('export') },
-  { id: 'settings' as TabId, icon: Settings, label: 'Instellingen', onClick: () => onTabChange('settings') },
-]
-
 export function AppShell() {
   const [activeTab, setActiveTab] = useState<TabId>('home')
+
+  const onTabChange = useCallback((t: TabId) => setActiveTab(t), [])
+  const dockItems = useMemo(() => [
+    { id: 'home' as TabId, icon: Home, label: 'Overzicht', onClick: () => onTabChange('home') },
+    { id: 'car' as TabId, icon: Car, label: 'Mijn Auto', onClick: () => onTabChange('car') },
+    { id: 'export' as TabId, icon: Download, label: 'Exporteer', onClick: () => onTabChange('export') },
+    { id: 'settings' as TabId, icon: Settings, label: 'Instellingen', onClick: () => onTabChange('settings') },
+  ], [onTabChange])
   const selectedDate = useKmStore((s) => s.selectedDate)
   const setSelectedDate = useKmStore((s) => s.setSelectedDate)
 
@@ -48,7 +49,7 @@ export function AppShell() {
         )}
       </main>
 
-      <Dock items={DOCK_ITEMS(setActiveTab)} activeTab={activeTab} />
+      <Dock items={dockItems} activeTab={activeTab} />
     </div>
   )
 }

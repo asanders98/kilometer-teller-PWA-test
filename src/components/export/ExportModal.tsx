@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useKmStore } from '../../store/kmStore'
 import { exportMonthToExcel } from '../../lib/excelExport'
 import { getDutchMonthName } from '../../lib/dateUtils'
@@ -14,11 +14,13 @@ export function ExportModal() {
   const settings = useKmStore((s) => s.settings)
 
   const entries = getMonthEntries(year, month)
-  const completeCount = entries.filter((e) => isEntryComplete(e.readings)).length
-  const totalBeroepsmatig = entries.reduce((sum, e) => {
-    const calc = calculateKm(e.readings)
-    return sum + (calc.beroepsmatig ?? 0)
-  }, 0)
+  const { completeCount, totalBeroepsmatig } = useMemo(() => ({
+    completeCount: entries.filter((e) => isEntryComplete(e.readings)).length,
+    totalBeroepsmatig: entries.reduce((sum, e) => {
+      const calc = calculateKm(e.readings)
+      return sum + (calc.beroepsmatig ?? 0)
+    }, 0),
+  }), [entries])
 
   const prevMonth = () => {
     if (month === 1) { setMonth(12); setYear((y) => y - 1) }

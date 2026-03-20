@@ -9,7 +9,6 @@ export function useAutoBackup() {
   const enabled = useKmStore((s) => s.googleDrive.enabled)
   const entries = useKmStore((s) => s.entries)
   const settings = useKmStore((s) => s.settings)
-  const triggerBackup = useKmStore((s) => s.triggerBackup)
   const pendingBackup = useKmStore((s) => s.googleDrive.pendingBackup)
 
   // Track previous values to detect changes
@@ -18,24 +17,25 @@ export function useAutoBackup() {
   useEffect(() => {
     if (!enabled) return
 
-    // Check if entries or settings actually changed
+    // Check if entries or settings actually changed (reference equality)
     const prev = prevRef.current
     if (prev.entries === entries && prev.settings === settings) return
     prevRef.current = { entries, settings }
 
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
+      const state = useKmStore.getState()
       if (navigator.onLine) {
-        triggerBackup()
+        state.triggerBackup()
       } else {
-        useKmStore.getState().setGoogleDriveState({ pendingBackup: true })
+        state.setGoogleDriveState({ pendingBackup: true })
       }
     }, DEBOUNCE_MS)
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [enabled, entries, settings, triggerBackup])
+  }, [enabled, entries, settings])
 
   // Retry pending backups when coming back online
   useEffect(() => {
@@ -53,7 +53,7 @@ export function useAutoBackup() {
   // Also retry pending on mount if online
   useEffect(() => {
     if (enabled && pendingBackup && navigator.onLine) {
-      triggerBackup()
+      useKmStore.getState().triggerBackup()
     }
-  }, [enabled, pendingBackup, triggerBackup])
+  }, [enabled, pendingBackup])
 }

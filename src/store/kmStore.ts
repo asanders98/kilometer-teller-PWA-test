@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { KmStore, KmEntry, KmReading, BackupData } from '../types'
 import { getAccessToken } from '../lib/googleAuth'
 import { uploadBackup } from '../lib/googleDrive'
+import { formatDateKey } from '../lib/dateUtils'
 
 export const useKmStore = create<KmStore>()(
   persist(
@@ -14,7 +15,7 @@ export const useKmStore = create<KmStore>()(
         klant: '',
         theme: 'system',
         kmLimiet: 25000,
-        leaseStartDatum: new Date().toISOString().slice(0, 10),
+        leaseStartDatum: formatDateKey(new Date()),
       },
       googleDrive: {
         enabled: false,
