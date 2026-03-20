@@ -1,22 +1,15 @@
 import { unzipSync, strToU8, zipSync } from 'fflate'
 import type { KmEntry, AppSettings } from '../types'
-import { getDutchMonthName, formatDateKey } from './dateUtils'
+import { getDutchMonthName, formatDateKey, getWorkdaysForMonth } from './dateUtils'
+import { calculateKm } from './calculations'
+
+// Maximum workday rows in the Excel template (rows 11–39)
+const MAX_ROWS = 29
 
 // Convert a JS Date to Excel date serial (days since Jan 0, 1900)
 function toExcelSerial(date: Date): number {
   const utcMs = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
   return (utcMs - Date.UTC(1899, 11, 30)) / 86400000
-}
-
-function getWorkdays(year: number, month: number): Date[] {
-  const days: Date[] = []
-  const last = new Date(year, month, 0).getDate()
-  for (let d = 1; d <= last; d++) {
-    const date = new Date(year, month - 1, d)
-    const dow = date.getDay()
-    if (dow !== 0 && dow !== 6) days.push(date)
-  }
-  return days
 }
 
 // Replace a self-closing empty cell with a numeric value
@@ -27,9 +20,20 @@ function setCellNum(xml: string, ref: string, value: number): string {
   if (selfClose.test(xml)) {
     return xml.replace(selfClose, `$1><v>${value}</v></c>`)
   }
-  // Match cell with existing content (e.g. <c r="F11" ...><f.../><v>0</v></c>)
-  const withContent = new RegExp(`(<c r="${ref}"[^>]*>)(<[^>]+>)*<v>[^<]*<\\/v>(<[^>]+>)*(<\\/c>)`)
+  const withContent = new RegExp(`(<c r="${ref}"[^>]*>)[\\s\\S]*?<\\/c>`)
   return xml.replace(withContent, `$1<v>${value}</v></c>`)
+}
+
+// Set a cell to contain an Excel formula with a pre-computed cached value
+function setCellFormula(xml: string, ref: string, formula: string, cachedValue: number = 0): string {
+  const vTag = `<v>${cachedValue}</v>`
+  // Match any cell tag (self-closing or with content)
+  const selfClose = new RegExp(`(<c r="${ref}"[^>]*?)/>`)
+  if (selfClose.test(xml)) {
+    return xml.replace(selfClose, `$1><f>${formula}</f>${vTag}</c>`)
+  }
+  const withContent = new RegExp(`(<c r="${ref}"[^>]*>)[\\s\\S]*?<\\/c>`)
+  return xml.replace(withContent, `$1<f>${formula}</f>${vTag}</c>`)
 }
 
 // Set a text cell using inline string (avoids modifying sharedStrings.xml)
@@ -68,31 +72,56 @@ export async function exportMonthToExcel(
   xml = setCellText(xml, 'D2', settings.klant || '')
   xml = setCellText(xml, 'D3', `${cap} ${year}`)
 
-  // Data rows — fill only rows for actual workdays, leave the rest empty
+  // Data rows — fill workday values and formulas in a single pass
   const entryMap = new Map(allEntries.map((e) => [e.date, e]))
-  const workdays = getWorkdays(year, month)
+  const workdays = getWorkdaysForMonth(year, month)
 
-  for (let i = 0; i < Math.min(workdays.length, 29); i++) {
-    const day = workdays[i]!
+  let totalF = 0
+  let totalG = 0
+  for (let i = 0; i < MAX_ROWS; i++) {
     const row = 11 + i
-    const r = entryMap.get(formatDateKey(day))?.readings
+    const day = workdays[i]
+    const r = day ? entryMap.get(formatDateKey(day))?.readings : undefined
 
-    xml = setCellNum(xml, `A${row}`, toExcelSerial(day))
-
+    if (day) xml = setCellNum(xml, `A${row}`, toExcelSerial(day))
     if (r?.leaveHome != null)        xml = setCellNum(xml, `B${row}`, r.leaveHome)
     if (r?.arriveFirstClient != null) xml = setCellNum(xml, `C${row}`, r.arriveFirstClient)
     if (r?.arriveLastClient != null)  xml = setCellNum(xml, `D${row}`, r.arriveLastClient)
     if (r?.arriveHome != null)        xml = setCellNum(xml, `E${row}`, r.arriveHome)
-    // F and G already have shared formulas from template — no change needed
+
+    // Pre-compute cached values so iOS Files previewer shows correct numbers
+    const km = r ? calculateKm(r) : { totaal: null, beroepsmatig: null }
+    const fVal = km.totaal ?? 0
+    const gVal = km.beroepsmatig ?? 0
+    totalF += fVal
+    totalG += gVal
+    xml = setCellFormula(xml, `F${row}`, `E${row}-B${row}`, fVal)
+    xml = setCellFormula(xml, `G${row}`, `D${row}-C${row}`, gVal)
   }
+
+  // Totals row with pre-computed sums
+  xml = setCellFormula(xml, 'F40', 'SUM(F11:F39)', totalF)
+  xml = setCellFormula(xml, 'G40', 'SUM(G11:G39)', totalG)
 
   // Write patched XML back into the zip
   files['xl/worksheets/sheet1.xml'] = strToU8(xml)
 
-  // Patch workbook.xml to rename the sheet
+  // Remove calcChain.xml and its references so Excel rebuilds from the new formulas
+  delete files['xl/calcChain.xml']
+
+  let ctXml = new TextDecoder().decode(files['[Content_Types].xml'])
+  ctXml = ctXml.replace(/<Override[^>]*calcChain[^>]*\/>/, '')
+  files['[Content_Types].xml'] = strToU8(ctXml)
+
+  let relsXml = new TextDecoder().decode(files['xl/_rels/workbook.xml.rels'])
+  relsXml = relsXml.replace(/<Relationship[^>]*calcChain[^>]*\/>/, '')
+  files['xl/_rels/workbook.xml.rels'] = strToU8(relsXml)
+
+  // Patch workbook.xml to rename the sheet and force recalculation on open
   const newName = `Km ${cap} ${year}`
   let wbXml = new TextDecoder().decode(files['xl/workbook.xml'])
   wbXml = wbXml.replace(/name="Sheet2"/, `name="${newName}"`)
+  wbXml = wbXml.replace(/<calcPr[^>]*\/>/, '<calcPr fullCalcOnLoad="1"/>')
   files['xl/workbook.xml'] = strToU8(wbXml)
 
   // Re-zip (level 0 = store only, fastest; styles/images preserved as-is)
