@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write
 
 concurrency:
   group: pages-test
@@ -35,6 +36,12 @@ jobs:
           VERSION="${BASE_VERSION}.${{ github.run_number }}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           npm version $VERSION --no-git-tag-version
+      - name: Update run name
+        run: |
+          gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }} \
+            -X PATCH -f name="Test Deploy v${{ steps.version.outputs.version }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
       - run: npm run build
         env:
           VITE_BASE_PATH: /kilometer-teller-PWA-test/
@@ -46,7 +53,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment:
-      name: github-pages (${{ needs.build.outputs.version }})
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/deploy-pages@v4
