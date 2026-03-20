@@ -13,6 +13,8 @@ export const useKmStore = create<KmStore>()(
         werknemer: '',
         klant: '',
         theme: 'system',
+        kmLimiet: 25000,
+        leaseStartDatum: new Date().toISOString().slice(0, 10),
       },
       googleDrive: {
         enabled: false,
@@ -101,7 +103,10 @@ export const useKmStore = create<KmStore>()(
       restoreFromBackup: (data) => {
         set({
           entries: data.entries,
-          settings: data.settings,
+          settings: {
+            ...get().settings,
+            ...data.settings,
+          },
         })
       },
     }),
