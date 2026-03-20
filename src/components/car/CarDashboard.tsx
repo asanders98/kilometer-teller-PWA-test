@@ -175,13 +175,11 @@ function PeriodTabs({ selected, onChange }: { selected: Period; onChange: (p: Pe
 function HealthChart({
   data,
   period,
-  offset,
   selectedBar,
   onSelectBar,
 }: {
   data: { label: string; business: number; private: number }[]
   period: Period
-  offset: number
   selectedBar: number | null
   onSelectBar: (i: number | null) => void
 }) {
@@ -420,7 +418,6 @@ export function CarDashboard() {
             <HealthChart
               data={bars}
               period={period}
-              offset={offset}
               selectedBar={selectedBar}
               onSelectBar={setSelectedBar}
             />
