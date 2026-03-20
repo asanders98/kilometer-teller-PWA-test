@@ -1,22 +1,15 @@
 import { unzipSync, strToU8, zipSync } from 'fflate'
 import type { KmEntry, AppSettings } from '../types'
-import { getDutchMonthName, formatDateKey } from './dateUtils'
+import { getDutchMonthName, formatDateKey, getWorkdaysForMonth } from './dateUtils'
+import { calculateKm } from './calculations'
+
+// Maximum workday rows in the Excel template (rows 11–39)
+const MAX_ROWS = 29
 
 // Convert a JS Date to Excel date serial (days since Jan 0, 1900)
 function toExcelSerial(date: Date): number {
   const utcMs = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
   return (utcMs - Date.UTC(1899, 11, 30)) / 86400000
-}
-
-function getWorkdays(year: number, month: number): Date[] {
-  const days: Date[] = []
-  const last = new Date(year, month, 0).getDate()
-  for (let d = 1; d <= last; d++) {
-    const date = new Date(year, month - 1, d)
-    const dow = date.getDay()
-    if (dow !== 0 && dow !== 6) days.push(date)
-  }
-  return days
 }
 
 // Replace a self-closing empty cell with a numeric value
@@ -27,8 +20,7 @@ function setCellNum(xml: string, ref: string, value: number): string {
   if (selfClose.test(xml)) {
     return xml.replace(selfClose, `$1><v>${value}</v></c>`)
   }
-  // Match cell with existing content (e.g. <c r="F11" ...><f.../><v>0</v></c>)
-  const withContent = new RegExp(`(<c r="${ref}"[^>]*>)(<[^>]+>)*<v>[^<]*<\\/v>(<[^>]+>)*(<\\/c>)`)
+  const withContent = new RegExp(`(<c r="${ref}"[^>]*>)[\\s\\S]*?<\\/c>`)
   return xml.replace(withContent, `$1<v>${value}</v></c>`)
 }
 
@@ -80,44 +72,27 @@ export async function exportMonthToExcel(
   xml = setCellText(xml, 'D2', settings.klant || '')
   xml = setCellText(xml, 'D3', `${cap} ${year}`)
 
-  // Data rows — fill only rows for actual workdays, leave the rest empty
+  // Data rows — fill workday values and formulas in a single pass
   const entryMap = new Map(allEntries.map((e) => [e.date, e]))
-  const workdays = getWorkdays(year, month)
+  const workdays = getWorkdaysForMonth(year, month)
 
-  for (let i = 0; i < Math.min(workdays.length, 29); i++) {
-    const day = workdays[i]!
+  let totalF = 0
+  let totalG = 0
+  for (let i = 0; i < MAX_ROWS; i++) {
     const row = 11 + i
-    const r = entryMap.get(formatDateKey(day))?.readings
+    const day = workdays[i]
+    const r = day ? entryMap.get(formatDateKey(day))?.readings : undefined
 
-    xml = setCellNum(xml, `A${row}`, toExcelSerial(day))
-
+    if (day) xml = setCellNum(xml, `A${row}`, toExcelSerial(day))
     if (r?.leaveHome != null)        xml = setCellNum(xml, `B${row}`, r.leaveHome)
     if (r?.arriveFirstClient != null) xml = setCellNum(xml, `C${row}`, r.arriveFirstClient)
     if (r?.arriveLastClient != null)  xml = setCellNum(xml, `D${row}`, r.arriveLastClient)
     if (r?.arriveHome != null)        xml = setCellNum(xml, `E${row}`, r.arriveHome)
-  }
 
-  // Replace ALL shared formulas with individual formulas (rows 11-39)
-  // Pre-compute cached values so iOS Files previewer shows correct numbers
-  const rowValues: { b: number; c: number; d: number; e: number }[] = []
-  for (let i = 0; i < 29; i++) {
-    const day = workdays[i]
-    const r = day ? entryMap.get(formatDateKey(day))?.readings : undefined
-    rowValues.push({
-      b: r?.leaveHome ?? 0,
-      c: r?.arriveFirstClient ?? 0,
-      d: r?.arriveLastClient ?? 0,
-      e: r?.arriveHome ?? 0,
-    })
-  }
-
-  let totalF = 0
-  let totalG = 0
-  for (let i = 0; i < 29; i++) {
-    const row = 11 + i
-    const v = rowValues[i]!
-    const fVal = v.e - v.b
-    const gVal = v.d - v.c
+    // Pre-compute cached values so iOS Files previewer shows correct numbers
+    const km = r ? calculateKm(r) : { totaal: null, beroepsmatig: null }
+    const fVal = km.totaal ?? 0
+    const gVal = km.beroepsmatig ?? 0
     totalF += fVal
     totalG += gVal
     xml = setCellFormula(xml, `F${row}`, `E${row}-B${row}`, fVal)
