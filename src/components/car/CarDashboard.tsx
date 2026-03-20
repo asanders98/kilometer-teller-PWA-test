@@ -1,53 +1,106 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, TrendingUp, Briefcase, User, Calendar } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card'
 import { useKmStore } from '../../store/kmStore'
+import { calculateKm } from '../../lib/calculations'
+import { formatDateKey } from '../../lib/dateUtils'
+import type { KmEntry } from '../../types'
 
 type Period = 'D' | 'W' | 'M' | '6M' | 'J'
+type BarData = { label: string; business: number; private: number }
 
 const DAY_NAMES = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
 const MONTH_SHORT = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec']
 
-function seededRandom(seed: number) {
-  const x = Math.sin(seed * 9301 + 49297) * 49297
-  return x - Math.floor(x)
+function entryToBarValues(entry: KmEntry | undefined): { business: number; private: number } {
+  if (!entry) return { business: 0, private: 0 }
+  const km = calculateKm(entry.readings)
+  const biz = km.beroepsmatig ?? 0
+  const tot = km.totaal ?? 0
+  return { business: Math.max(biz, 0), private: Math.max(tot - biz, 0) }
 }
 
-function generateBars(period: Period, offset: number) {
-  const seed = (offset + 1000) * 100 + (period === 'W' ? 1 : period === 'M' ? 2 : period === '6M' ? 3 : period === 'J' ? 4 : 0) * 10000
+function buildBars(
+  period: Period,
+  offset: number,
+  entries: Record<string, KmEntry>,
+): BarData[] {
+  const now = new Date()
+
   switch (period) {
-    case 'D':
-      return [{
-        label: '',
-        business: Math.round(seededRandom(seed) * 40 + 20),
-        private: Math.round(seededRandom(seed + 1) * 20 + 5),
-      }]
-    case 'W':
-      return DAY_NAMES.map((d, i) => ({
-        label: d,
-        business: Math.round(seededRandom(seed + i) * 50 + 10),
-        private: Math.round(seededRandom(seed + i + 7) * 20),
-      }))
-    case 'M':
-      return Array.from({ length: 30 }, (_, i) => ({
-        label: (i + 1) % 5 === 1 ? `${i + 1}` : '',
-        business: Math.round(seededRandom(seed + i) * 50 + 10),
-        private: Math.round(seededRandom(seed + i + 30) * 20),
-      }))
-    case '6M':
-      return MONTH_SHORT.slice(0, 6).map((m, i) => ({
-        label: m,
-        business: Math.round(seededRandom(seed + i) * 600 + 300),
-        private: Math.round(seededRandom(seed + i + 6) * 250 + 100),
-      }))
-    case 'J':
-      return MONTH_SHORT.map((m, i) => ({
-        label: m,
-        business: Math.round(seededRandom(seed + i) * 600 + 300),
-        private: Math.round(seededRandom(seed + i + 12) * 250 + 100),
-      }))
+    case 'D': {
+      const d = new Date(now)
+      d.setDate(d.getDate() + offset)
+      const vals = entryToBarValues(entries[formatDateKey(d)])
+      return [{ label: '', ...vals }]
+    }
+    case 'W': {
+      const start = new Date(now)
+      const dow = (start.getDay() + 6) % 7
+      start.setDate(start.getDate() - dow + offset * 7)
+      return DAY_NAMES.map((label, i) => {
+        const d = new Date(start)
+        d.setDate(start.getDate() + i)
+        return { label, ...entryToBarValues(entries[formatDateKey(d)]) }
+      })
+    }
+    case 'M': {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() + offset, 1)
+      const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate()
+      return Array.from({ length: daysInMonth }, (_, i) => {
+        const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), i + 1)
+        const vals = entryToBarValues(entries[formatDateKey(d)])
+        return { label: (i + 1) % 5 === 1 ? `${i + 1}` : '', ...vals }
+      })
+    }
+    case '6M': {
+      const endMonth = new Date(now.getFullYear(), now.getMonth() + offset * 6, 1)
+      return Array.from({ length: 6 }, (_, i) => {
+        const m = new Date(endMonth.getFullYear(), endMonth.getMonth() - 5 + i, 1)
+        const vals = sumMonthEntries(m.getFullYear(), m.getMonth(), entries)
+        return { label: MONTH_SHORT[m.getMonth()], ...vals }
+      })
+    }
+    case 'J': {
+      const year = now.getFullYear() + offset
+      return MONTH_SHORT.map((label, i) => {
+        const vals = sumMonthEntries(year, i, entries)
+        return { label, ...vals }
+      })
+    }
   }
+}
+
+function sumMonthEntries(
+  year: number,
+  month: number, // 0-indexed
+  entries: Record<string, KmEntry>,
+): { business: number; private: number } {
+  let business = 0
+  let priv = 0
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day)
+    const vals = entryToBarValues(entries[formatDateKey(d)])
+    business += vals.business
+    priv += vals.private
+  }
+  return { business, private: priv }
+}
+
+function computeTotalKmSinceLease(
+  entries: Record<string, KmEntry>,
+  leaseStartDatum: string,
+): number {
+  let total = 0
+  for (const entry of Object.values(entries)) {
+    if (entry.date >= leaseStartDatum) {
+      const km = calculateKm(entry.readings)
+      total += km.totaal ?? 0
+    }
+  }
+  return Math.max(total, 0)
 }
 
 function getPeriodTitle(period: Period, offset: number): string {
@@ -181,7 +234,7 @@ function HealthChart({
   selectedBar,
   onSelectBar,
 }: {
-  data: { label: string; business: number; private: number }[]
+  data: BarData[]
   period: Period
   selectedBar: number | null
   onSelectBar: (i: number | null) => void
@@ -312,6 +365,7 @@ function HighlightCard({
 
 export function CarDashboard() {
   const settings = useKmStore((s) => s.settings)
+  const entries = useKmStore((s) => s.entries)
   const kmLimiet = settings.kmLimiet || 25000
 
   const [period, setPeriod] = useState<Period>('W')
@@ -320,7 +374,12 @@ export function CarDashboard() {
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
 
-  const bars = generateBars(period, offset)
+  const usedKm = useMemo(
+    () => computeTotalKmSinceLease(entries, settings.leaseStartDatum),
+    [entries, settings.leaseStartDatum],
+  )
+
+  const bars = useMemo(() => buildBars(period, offset, entries), [period, offset, entries])
   const totalBiz = bars.reduce((s, d) => s + d.business, 0)
   const totalPriv = bars.reduce((s, d) => s + d.private, 0)
   const total = totalBiz + totalPriv
@@ -361,8 +420,8 @@ export function CarDashboard() {
   const headerValue = selectedData
     ? (selectedData.business + selectedData.private)
     : (period === 'D' ? total : avg)
-  const headerSubtitle = selectedData
-    ? getBarLabel(period, offset, selectedBar!)
+  const headerSubtitle = selectedData && selectedBar !== null
+    ? getBarLabel(period, offset, selectedBar)
     : getPeriodTitle(period, offset)
 
   const unitLabel = period === 'J' || period === '6M' ? 'km/mnd' : 'km/dag'
@@ -373,7 +432,7 @@ export function CarDashboard() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-4 pb-6 space-y-3">
-        <ProgressBar used={12450} limit={kmLimiet} />
+        <ProgressBar used={usedKm} limit={kmLimiet} />
 
         <PeriodTabs selected={period} onChange={handlePeriodChange} />
 
@@ -458,7 +517,7 @@ export function CarDashboard() {
               label="Zakelijk"
               value={(selectedData ? selectedData.business : totalBiz).toLocaleString('nl-NL')}
               unit="km"
-              subtitle={selectedData ? getBarLabel(period, offset, selectedBar!) : getPeriodTitle(period, offset)}
+              subtitle={selectedData && selectedBar !== null ? getBarLabel(period, offset, selectedBar) : getPeriodTitle(period, offset)}
               color="text-primary"
             />
             <HighlightCard
@@ -466,7 +525,7 @@ export function CarDashboard() {
               label="Privé"
               value={(selectedData ? selectedData.private : totalPriv).toLocaleString('nl-NL')}
               unit="km"
-              subtitle={selectedData ? getBarLabel(period, offset, selectedBar!) : getPeriodTitle(period, offset)}
+              subtitle={selectedData && selectedBar !== null ? getBarLabel(period, offset, selectedBar) : getPeriodTitle(period, offset)}
             />
             <HighlightCard
               icon={TrendingUp}
