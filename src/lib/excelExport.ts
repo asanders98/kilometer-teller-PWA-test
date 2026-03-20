@@ -32,15 +32,16 @@ function setCellNum(xml: string, ref: string, value: number): string {
   return xml.replace(withContent, `$1<v>${value}</v></c>`)
 }
 
-// Set a cell to contain an Excel formula (replaces any existing content including shared formulas)
-function setCellFormula(xml: string, ref: string, formula: string): string {
+// Set a cell to contain an Excel formula with a pre-computed cached value
+function setCellFormula(xml: string, ref: string, formula: string, cachedValue: number = 0): string {
+  const vTag = `<v>${cachedValue}</v>`
   // Match any cell tag (self-closing or with content)
   const selfClose = new RegExp(`(<c r="${ref}"[^>]*?)/>`)
   if (selfClose.test(xml)) {
-    return xml.replace(selfClose, `$1><f>${formula}</f></c>`)
+    return xml.replace(selfClose, `$1><f>${formula}</f>${vTag}</c>`)
   }
   const withContent = new RegExp(`(<c r="${ref}"[^>]*>)[\\s\\S]*?<\\/c>`)
-  return xml.replace(withContent, `$1<f>${formula}</f></c>`)
+  return xml.replace(withContent, `$1<f>${formula}</f>${vTag}</c>`)
 }
 
 // Set a text cell using inline string (avoids modifying sharedStrings.xml)
@@ -97,15 +98,35 @@ export async function exportMonthToExcel(
   }
 
   // Replace ALL shared formulas with individual formulas (rows 11-39)
-  // This avoids broken shared formula references after modifying cells
-  for (let row = 11; row <= 39; row++) {
-    xml = setCellFormula(xml, `F${row}`, `E${row}-B${row}`)
-    xml = setCellFormula(xml, `G${row}`, `D${row}-C${row}`)
+  // Pre-compute cached values so iOS Files previewer shows correct numbers
+  const rowValues: { b: number; c: number; d: number; e: number }[] = []
+  for (let i = 0; i < 29; i++) {
+    const day = workdays[i]
+    const r = day ? entryMap.get(formatDateKey(day))?.readings : undefined
+    rowValues.push({
+      b: r?.leaveHome ?? 0,
+      c: r?.arriveFirstClient ?? 0,
+      d: r?.arriveLastClient ?? 0,
+      e: r?.arriveHome ?? 0,
+    })
   }
 
-  // Ensure totals row formulas are present
-  xml = setCellFormula(xml, 'F40', 'SUM(F11:F39)')
-  xml = setCellFormula(xml, 'G40', 'SUM(G11:G39)')
+  let totalF = 0
+  let totalG = 0
+  for (let i = 0; i < 29; i++) {
+    const row = 11 + i
+    const v = rowValues[i]!
+    const fVal = v.e - v.b
+    const gVal = v.d - v.c
+    totalF += fVal
+    totalG += gVal
+    xml = setCellFormula(xml, `F${row}`, `E${row}-B${row}`, fVal)
+    xml = setCellFormula(xml, `G${row}`, `D${row}-C${row}`, gVal)
+  }
+
+  // Totals row with pre-computed sums
+  xml = setCellFormula(xml, 'F40', 'SUM(F11:F39)', totalF)
+  xml = setCellFormula(xml, 'G40', 'SUM(G11:G39)', totalG)
 
   // Write patched XML back into the zip
   files['xl/worksheets/sheet1.xml'] = strToU8(xml)
