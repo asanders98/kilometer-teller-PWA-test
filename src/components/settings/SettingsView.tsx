@@ -51,6 +51,35 @@ export function SettingsView() {
         </div>
       </div>
 
+      {/* Lease / km budget */}
+      <div className="flex flex-col bg-card rounded-xl border border-border divide-y divide-border">
+        <div className="px-4 pt-4 pb-3">
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Km limiet per jaar
+          </label>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={settings.kmLimiet || 25000}
+            onChange={(e) => updateSettings({ kmLimiet: parseInt(e.target.value) || 25000 })}
+            placeholder="25000"
+            className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring text-base transition-shadow"
+          />
+        </div>
+
+        <div className="px-4 pt-3 pb-4">
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Startdatum lease
+          </label>
+          <input
+            type="date"
+            value={settings.leaseStartDatum || ''}
+            onChange={(e) => updateSettings({ leaseStartDatum: e.target.value })}
+            className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring text-base transition-shadow appearance-none min-w-0"
+          />
+        </div>
+      </div>
+
       {/* Theme toggle */}
       <div className="flex flex-col bg-card rounded-xl border border-border px-4 py-4 gap-3">
         <label className="text-sm font-medium text-foreground">Weergave</label>

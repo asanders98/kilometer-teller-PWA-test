@@ -20,9 +20,11 @@ export interface AppSettings {
   werknemer: string
   klant: string
   theme: 'light' | 'dark' | 'system'
+  kmLimiet: number        // annual km limit (default 25000)
+  leaseStartDatum: string // lease start date "YYYY-MM-DD"
 }
 
-export type TabId = 'home' | 'export' | 'settings'
+export type TabId = 'home' | 'car' | 'export' | 'settings'
 
 export interface BackupData {
   version: 1

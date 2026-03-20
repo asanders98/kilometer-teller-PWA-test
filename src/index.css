@@ -54,7 +54,8 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Open Sans', sans-serif;
+    font-family: -apple-system, 'SF Pro Text', 'Open Sans', sans-serif;
+    font-size: 17px;
     overscroll-behavior: none;
   }
 
