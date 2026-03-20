@@ -1,4 +1,5 @@
 name: Deploy to GitHub Pages
+run-name: "v0.2.${{ github.run_number }} — ${{ github.event.head_commit.message }}"
 
 on:
   push:
@@ -18,8 +19,6 @@ jobs:
   build:
     if: github.repository == 'asanders98/kilometer-teller-PWA'
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,7 +30,6 @@ jobs:
         run: |
           BASE_VERSION=$(node -p "require('./package.json').version.split('.').slice(0,2).join('.')")
           VERSION="${BASE_VERSION}.${{ github.run_number }}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
           npm version $VERSION --no-git-tag-version
       - run: npm run build
         env:
@@ -44,7 +42,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment:
-      name: github-pages (${{ needs.build.outputs.version }})
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/deploy-pages@v4
