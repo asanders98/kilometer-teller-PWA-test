@@ -32,6 +32,17 @@ function setCellNum(xml: string, ref: string, value: number): string {
   return xml.replace(withContent, `$1<v>${value}</v></c>`)
 }
 
+// Set a cell to contain an Excel formula (replaces any existing content including shared formulas)
+function setCellFormula(xml: string, ref: string, formula: string): string {
+  // Match any cell tag (self-closing or with content)
+  const selfClose = new RegExp(`(<c r="${ref}"[^>]*?)/>`)
+  if (selfClose.test(xml)) {
+    return xml.replace(selfClose, `$1><f>${formula}</f><v>0</v></c>`)
+  }
+  const withContent = new RegExp(`(<c r="${ref}"[^>]*>)[\\s\\S]*?<\\/c>`)
+  return xml.replace(withContent, `$1<f>${formula}</f><v>0</v></c>`)
+}
+
 // Set a text cell using inline string (avoids modifying sharedStrings.xml)
 function setCellText(xml: string, ref: string, value: string): string {
   const escaped = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -83,8 +94,15 @@ export async function exportMonthToExcel(
     if (r?.arriveFirstClient != null) xml = setCellNum(xml, `C${row}`, r.arriveFirstClient)
     if (r?.arriveLastClient != null)  xml = setCellNum(xml, `D${row}`, r.arriveLastClient)
     if (r?.arriveHome != null)        xml = setCellNum(xml, `E${row}`, r.arriveHome)
-    // F and G already have shared formulas from template — no change needed
+
+    // Explicitly write formulas (replaces shared formulas to avoid corruption)
+    xml = setCellFormula(xml, `F${row}`, `E${row}-B${row}`)
+    xml = setCellFormula(xml, `G${row}`, `D${row}-C${row}`)
   }
+
+  // Ensure totals row formulas are present
+  xml = setCellFormula(xml, 'F40', 'SUM(F11:F39)')
+  xml = setCellFormula(xml, 'G40', 'SUM(G11:G39)')
 
   // Write patched XML back into the zip
   files['xl/worksheets/sheet1.xml'] = strToU8(xml)
