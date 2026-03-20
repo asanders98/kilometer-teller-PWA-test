@@ -37,10 +37,10 @@ function setCellFormula(xml: string, ref: string, formula: string): string {
   // Match any cell tag (self-closing or with content)
   const selfClose = new RegExp(`(<c r="${ref}"[^>]*?)/>`)
   if (selfClose.test(xml)) {
-    return xml.replace(selfClose, `$1><f>${formula}</f><v>0</v></c>`)
+    return xml.replace(selfClose, `$1><f>${formula}</f></c>`)
   }
   const withContent = new RegExp(`(<c r="${ref}"[^>]*>)[\\s\\S]*?<\\/c>`)
-  return xml.replace(withContent, `$1<f>${formula}</f><v>0</v></c>`)
+  return xml.replace(withContent, `$1<f>${formula}</f></c>`)
 }
 
 // Set a text cell using inline string (avoids modifying sharedStrings.xml)
@@ -94,8 +94,11 @@ export async function exportMonthToExcel(
     if (r?.arriveFirstClient != null) xml = setCellNum(xml, `C${row}`, r.arriveFirstClient)
     if (r?.arriveLastClient != null)  xml = setCellNum(xml, `D${row}`, r.arriveLastClient)
     if (r?.arriveHome != null)        xml = setCellNum(xml, `E${row}`, r.arriveHome)
+  }
 
-    // Explicitly write formulas (replaces shared formulas to avoid corruption)
+  // Replace ALL shared formulas with individual formulas (rows 11-39)
+  // This avoids broken shared formula references after modifying cells
+  for (let row = 11; row <= 39; row++) {
     xml = setCellFormula(xml, `F${row}`, `E${row}-B${row}`)
     xml = setCellFormula(xml, `G${row}`, `D${row}-C${row}`)
   }
@@ -107,10 +110,22 @@ export async function exportMonthToExcel(
   // Write patched XML back into the zip
   files['xl/worksheets/sheet1.xml'] = strToU8(xml)
 
-  // Patch workbook.xml to rename the sheet
+  // Remove calcChain.xml and its references so Excel rebuilds from the new formulas
+  delete files['xl/calcChain.xml']
+
+  let ctXml = new TextDecoder().decode(files['[Content_Types].xml'])
+  ctXml = ctXml.replace(/<Override[^>]*calcChain[^>]*\/>/, '')
+  files['[Content_Types].xml'] = strToU8(ctXml)
+
+  let relsXml = new TextDecoder().decode(files['xl/_rels/workbook.xml.rels'])
+  relsXml = relsXml.replace(/<Relationship[^>]*calcChain[^>]*\/>/, '')
+  files['xl/_rels/workbook.xml.rels'] = strToU8(relsXml)
+
+  // Patch workbook.xml to rename the sheet and force recalculation on open
   const newName = `Km ${cap} ${year}`
   let wbXml = new TextDecoder().decode(files['xl/workbook.xml'])
   wbXml = wbXml.replace(/name="Sheet2"/, `name="${newName}"`)
+  wbXml = wbXml.replace(/<calcPr[^>]*\/>/, '<calcPr fullCalcOnLoad="1"/>')
   files['xl/workbook.xml'] = strToU8(wbXml)
 
   // Re-zip (level 0 = store only, fastest; styles/images preserved as-is)
