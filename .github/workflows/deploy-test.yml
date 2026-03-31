@@ -3,7 +3,7 @@ run-name: "v0.2.${{ github.run_number }} — ${{ github.event.head_commit.messag
 
 on:
   push:
-    branches: [main]
+    branches: [main-test]
   workflow_dispatch:
 
 permissions:
