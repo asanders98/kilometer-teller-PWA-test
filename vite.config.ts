@@ -16,7 +16,19 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
+      includeAssets: [
+        'icon.svg', 'icon-192.png', 'icon-512.png',
+        'tesseract/worker.min.js',
+        'tesseract/tesseract-core-simd-lstm.wasm.js',
+        'tesseract/tesseract-core-simd-lstm.wasm',
+        'tesseract/tesseract-core-lstm.wasm.js',
+        'tesseract/tesseract-core-lstm.wasm',
+        'tesseract/lang/eng.traineddata',
+      ],
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm,traineddata}'],
+        maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,
+      },
       manifest: {
         name: 'Kilometer Teller',
         short_name: 'Km Teller',
