@@ -7,8 +7,8 @@ The odometer is usually the largest km value shown (typically 5-6 digits).
 Return ONLY the number, no units, no spaces, no dots, no commas.
 If you cannot find the odometer, respond with exactly: ERROR`
 
-const MAX_IMAGE_WIDTH = 1024
-const JPEG_QUALITY = 0.8
+const MAX_IMAGE_WIDTH = 512
+const JPEG_QUALITY = 0.6
 const TIMEOUT_MS = 15_000
 
 export type GeminiOcrResult =
