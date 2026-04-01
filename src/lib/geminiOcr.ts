@@ -1,5 +1,5 @@
 const GEMINI_ENDPOINT =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent'
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent'
 
 const PROMPT = `Look at this car dashboard photo. Find the TOTAL odometer reading (total km driven).
 Ignore other numbers like trip counter, range, fuel consumption, temperature, time, or speed.
