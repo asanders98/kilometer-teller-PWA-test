@@ -9,6 +9,7 @@ import { CarDashboard } from '../car/CarDashboard'
 import { ExportModal } from '../export/ExportModal'
 import { SettingsView } from '../settings/SettingsView'
 import { useAutoBackup } from '../../hooks/useAutoBackup'
+import { ToastContainer } from '../ui/Toast'
 
 export function AppShell() {
   const [activeTab, setActiveTab] = useState<TabId>('home')
@@ -50,6 +51,7 @@ export function AppShell() {
       </main>
 
       <Dock items={dockItems} activeTab={activeTab} />
+      <ToastContainer />
     </div>
   )
 }

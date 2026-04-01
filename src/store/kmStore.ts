@@ -16,6 +16,7 @@ export const useKmStore = create<KmStore>()(
         theme: 'system',
         kmLimiet: 25000,
         leaseStartDatum: formatDateKey(new Date()),
+        geminiApiKey: '',
       },
       googleDrive: {
         enabled: false,

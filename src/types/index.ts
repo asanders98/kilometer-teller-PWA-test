@@ -22,6 +22,7 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system'
   kmLimiet: number        // annual km limit (default 25000)
   leaseStartDatum: string // lease start date "YYYY-MM-DD"
+  geminiApiKey: string    // user's Gemini API key for camera OCR
 }
 
 export type TabId = 'home' | 'car' | 'export' | 'settings'

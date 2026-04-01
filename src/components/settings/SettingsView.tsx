@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import { useKmStore } from '../../store/kmStore'
 import { cn } from '../../lib/utils'
 import type { AppSettings } from '../../types'
@@ -12,6 +14,7 @@ const THEME_OPTIONS: { value: AppSettings['theme']; label: string; icon: string 
 export function SettingsView() {
   const settings = useKmStore((s) => s.settings)
   const updateSettings = useKmStore((s) => s.updateSettings)
+  const [showApiKey, setShowApiKey] = useState(false)
 
   return (
     <div className="flex flex-col gap-6 px-4 py-5 max-w-lg mx-auto">
@@ -77,6 +80,41 @@ export function SettingsView() {
             onChange={(e) => updateSettings({ leaseStartDatum: e.target.value })}
             className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring text-base transition-shadow appearance-none min-w-0"
           />
+        </div>
+      </div>
+
+      {/* Gemini API key */}
+      <div className="flex flex-col bg-card rounded-xl border border-border px-4 py-4 gap-2">
+        <label className="block text-sm font-medium text-foreground">
+          Gemini API-sleutel
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Voor camerascan van kilometerteller. Maak een gratis sleutel aan op{' '}
+          <a
+            href="https://aistudio.google.com/apikey"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline"
+          >
+            aistudio.google.com
+          </a>
+        </p>
+        <div className="relative">
+          <input
+            type={showApiKey ? 'text' : 'password'}
+            value={settings.geminiApiKey || ''}
+            onChange={(e) => updateSettings({ geminiApiKey: e.target.value.trim() })}
+            placeholder="AI..."
+            className="w-full px-3 py-2.5 pr-10 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring text-base transition-shadow font-mono text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => setShowApiKey(!showApiKey)}
+            className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-muted-foreground/70 hover:text-foreground transition-colors"
+            aria-label={showApiKey ? 'Verberg sleutel' : 'Toon sleutel'}
+          >
+            {showApiKey ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+          </button>
         </div>
       </div>
 
