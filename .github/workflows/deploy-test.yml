@@ -27,6 +27,7 @@ jobs:
       - name: Use red icons for test app
         run: cp public/icons-red/* public/
       - run: npm install
+      - run: npm test
       - name: Set build version
         id: version
         run: |
