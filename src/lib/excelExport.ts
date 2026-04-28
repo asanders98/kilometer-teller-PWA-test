@@ -1,10 +1,21 @@
 import { unzipSync, strToU8, zipSync } from 'fflate'
 import type { KmEntry, AppSettings } from '../types'
-import { getDutchMonthName, formatDateKey, getWorkdaysForMonth } from './dateUtils'
+import { getDutchMonthName, parseDateKey } from './dateUtils'
 import { calculateKm } from './calculations'
 
-// Maximum workday rows in the Excel template (rows 11–39)
+// Maximum data rows in the Excel template (rows 11–39)
 const MAX_ROWS = 29
+
+/**
+ * Pick entries that go into the Excel template. Sorts chronologically and
+ * caps at `maxRows`. Includes every filled day (weekends too) — weekend
+ * entries used to be dropped by an old workdays-only filter.
+ */
+export function selectEntriesForExport(allEntries: KmEntry[], maxRows: number): KmEntry[] {
+  return [...allEntries]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, maxRows)
+}
 
 // Convert a JS Date to Excel date serial (days since Jan 0, 1900)
 function toExcelSerial(date: Date): number {
@@ -72,19 +83,24 @@ export async function exportMonthToExcel(
   xml = setCellText(xml, 'D2', settings.klant || '')
   xml = setCellText(xml, 'D3', `${cap} ${year}`)
 
-  // Data rows — fill workday values and formulas in a single pass
-  const entryMap = new Map(allEntries.map((e) => [e.date, e]))
-  const workdays = getWorkdaysForMonth(year, month)
+  // Data rows — emit one row per filled day, sorted chronologically.
+  // Includes weekends so weekend trips aren't silently dropped.
+  const includedEntries = selectEntriesForExport(allEntries, MAX_ROWS)
+  if (allEntries.length > MAX_ROWS) {
+    console.warn(
+      `Excel template heeft ${MAX_ROWS} rijen; ${allEntries.length - MAX_ROWS} dag(en) worden weggelaten.`,
+    )
+  }
 
   let totalF = 0
   let totalG = 0
   for (let i = 0; i < MAX_ROWS; i++) {
     const row = 11 + i
-    const day = workdays[i]
-    const r = day ? entryMap.get(formatDateKey(day))?.readings : undefined
+    const entry = includedEntries[i]
+    const r = entry?.readings
 
-    if (day) xml = setCellNum(xml, `A${row}`, toExcelSerial(day))
-    if (r?.leaveHome != null)        xml = setCellNum(xml, `B${row}`, r.leaveHome)
+    if (entry) xml = setCellNum(xml, `A${row}`, toExcelSerial(parseDateKey(entry.date)))
+    if (r?.leaveHome != null)         xml = setCellNum(xml, `B${row}`, r.leaveHome)
     if (r?.arriveFirstClient != null) xml = setCellNum(xml, `C${row}`, r.arriveFirstClient)
     if (r?.arriveLastClient != null)  xml = setCellNum(xml, `D${row}`, r.arriveLastClient)
     if (r?.arriveHome != null)        xml = setCellNum(xml, `E${row}`, r.arriveHome)
